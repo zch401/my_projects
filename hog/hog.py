@@ -1,7 +1,9 @@
 """CS 61A Presents The Game of Hog."""
 
-from dice import six_sided, four_sided, make_test_dice
-from ucb import main, trace, interact
+from __future__ import print_function
+from dice import four_sided, six_sided, make_test_dice
+from ucb import main, trace, log_current_line, interact
+import sys
 
 GOAL_SCORE = 100  # The goal of Hog is to score 100 points.
 
@@ -9,9 +11,9 @@ GOAL_SCORE = 100  # The goal of Hog is to score 100 points.
 # Phase 1: Simulator #
 ######################
 
-
 def roll_dice(num_rolls, dice=six_sided):
-    """Simulate rolling the DICE exactly NUM_ROLLS > 0 times. Return the sum of
+    """
+    Simulate rolling the DICE exactly NUM_ROLLS > 0 times. Return the sum of
     the outcomes unless any of the outcomes is 1. In that case, return 1.
 
     num_rolls:  The number of dice rolls that will be made.
@@ -21,41 +23,52 @@ def roll_dice(num_rolls, dice=six_sided):
     assert type(num_rolls) == int, 'num_rolls must be an integer.'
     assert num_rolls > 0, 'Must roll at least once.'
     # BEGIN PROBLEM 1
-    "*** YOUR CODE HERE ***"
-    i,sign=1,0
-    j,total=0,0
-    while i<=num_rolls:
-        j=dice()
-        if j==1 :
-            sign=1
-        i=i+1
-        total=total+j
-    if sign==1 :
-         total=1
+    total, k = 0, 0
+    pigs_out = False
+    while k < num_rolls:
+        roll = dice()
+        if roll == 1:
+            pigs_out = True
+        total += roll
+        k += 1
+        # if total > 7:
+        #     break
+
+    if pigs_out:
+        total = 1
+
     return total
     # END PROBLEM 1
 
 
-def free_bacon(score):
-    """Return the points scored from rolling 0 dice (Free Bacon).
-
-    score:  The opponent's current score.
-    """
-    assert score < 100, 'The game should be over.'
+def free_bacon(opponent_score):
+    """Return the points scored from rolling 0 dice (Free Bacon)."""
     # BEGIN PROBLEM 2
-    "*** YOUR CODE HERE ***"
-    i=score%10
-    j=(score//10)%10
-    num=2*j-i
-    if num<1:
-        num=1
-    return num
+    first_digit = opponent_score // 10
+    second_digit = opponent_score % 10
+    return max(first_digit, second_digit) + 1
     # END PROBLEM 2
 
 
+# Write your prime functions here!
+def prime(n):
+    assert type(n) == int, 'n must be integer number'
+    assert n > 1, 'n must greater than 1'
+    for i in range(2, n):
+        if n % i == 0:
+            return False
+    return True
+
+def hogtimus_prime(p):
+    next_prime = p + 1
+    while not prime(next_prime):
+        next_prime = next_prime + 1
+    return next_prime
+
 def take_turn(num_rolls, opponent_score, dice=six_sided):
     """Simulate a turn rolling NUM_ROLLS dice, which may be 0 (Free Bacon).
-    Return the points scored for the turn by the current player.
+    Return the points scored for the turn by the current player. Also
+    implements the Hogtimus Prime rule.
 
     num_rolls:       The number of dice rolls that will be made.
     opponent_score:  The total score of the opponent.
@@ -66,42 +79,55 @@ def take_turn(num_rolls, opponent_score, dice=six_sided):
     assert num_rolls >= 0, 'Cannot roll a negative number of dice in take_turn.'
     assert num_rolls <= 10, 'Cannot roll more than 10 dice.'
     assert opponent_score < 100, 'The game should be over.'
+    # BEGIN PROBLEM 2
+    score = free_bacon(opponent_score) if num_rolls == 0 else roll_dice(num_rolls, dice)
+    if score > 1 and prime(score):
+        return hogtimus_prime(score)
+
+    return score
+    # END PROBLEM 2
+
+
+def select_dice(dice_swapped):
+    """Return a six-sided dice unless four-sided dice have been swapped in due
+    to Perfect Piggy. DICE_SWAPPED is True if and only if four-sided dice are in
+    play.
+    """
     # BEGIN PROBLEM 3
-    "*** YOUR CODE HERE ***"
-    if num_rolls==0:
-        return free_bacon(opponent_score)
-    return roll_dice(num_rolls,dice)
+    return four_sided if dice_swapped else six_sided
     # END PROBLEM 3
 
-def last_two_digits(score):
-    """
-    Calculate the absolute value of the difference between the last two
-    digits
-    """
-    if score<10:
-        i=0
-        j=score
-    else :
-        j=score%10
-        i=(score//10)%10
-    diff=abs(i-j)
-    return diff
 
+# Write additional helper functions here!
+def is_perfect_square_or_cube(n):
+    for i in range(1, 15):
+        if n == i*i or n == i*i*i:
+            return True
+        elif i*i > n:
+            break
+    return False
 
-def is_swap(player_score, opponent_score):
-    """
-    Return whether the current player's score has the same absolute
-    difference between its last two digits as the opponent's score.
-    """
+def is_perfect_piggy(turn_score):
+    """Returns whether the Perfect Piggy dice-swapping rule should occur."""
     # BEGIN PROBLEM 4
-    "*** YOUR CODE HERE ***"
-    i=last_two_digits(player_score)
-    j=last_two_digits(opponent_score)
-    if i==j:
-        return True
-    else :
+    if turn_score == 1:
         return False
+
+    for i in range(1, 15):
+        if turn_score == i*i or turn_score == i*i*i:
+            return True
+        elif i*i > turn_score:
+            break
+
+    return False
     # END PROBLEM 4
+
+
+def is_swap(score0, score1):
+    """Returns whether one of the scores is double the other."""
+    # BEGIN PROBLEM 5
+    return True if 2*score0 == score1 or score0 == 2*score1 else False
+    # END PROBLEM 5
 
 
 def other(player):
@@ -114,14 +140,9 @@ def other(player):
     """
     return 1 - player
 
+SWINE_SWAPS = [0, 0]
 
-def silence(score0, score1):
-    """Announce nothing (see Phase 2)."""
-    return silence
-
-
-def play(strategy0, strategy1, score0=0, score1=0, dice=six_sided,
-         goal=GOAL_SCORE, say=silence):
+def play(strategy0, strategy1, score0=0, score1=0, goal=GOAL_SCORE):
     """Simulate a game and return the final scores of both players, with Player
     0's score first, and Player 1's score second.
 
@@ -129,140 +150,59 @@ def play(strategy0, strategy1, score0=0, score1=0, dice=six_sided,
     current player's score, and the opponent's score), and returns a number of
     dice that the current player will roll this turn.
 
-    strategy0:  The strategy function for Player 0, who plays first.
-    strategy1:  The strategy function for Player 1, who plays second.
-    score0:     Starting score for Player 0
-    score1:     Starting score for Player 1
-    dice:       A function of zero arguments that simulates a dice roll.
-    goal:       The game ends and someone wins when this score is reached.
-    say:        The commentary function to call at the end of the first turn.
+    strategy0:  The strategy function for Player 0, who plays first
+    strategy1:  The strategy function for Player 1, who plays second
+    score0:     The starting score for Player 0
+    score1:     The starting score for Player 1
     """
     player = 0  # Which player is about to take a turn, 0 (first) or 1 (second)
-    # BEGIN PROBLEM 5
-    "*** YOUR CODE HERE ***"
-    while (score0<goal and score1<goal) :
+    dice_swapped = False # Whether 4-sided dice have been swapped for 6-sided
+    # BEGIN PROBLEM 6
+    while True:
+        # player 0
+        strategy = strategy0 if player == 0 else strategy1
+        (score, opponent_score) = (score0, score1) if player == 0 else (score1, score0)
 
-        if player==0 :
-            score0+=take_turn(strategy0(score0,score1),score1,dice)
-        if player==1 :
-            score1+=take_turn(strategy1(score1,score0),score0,dice)
-        player=other(player)
-        if is_swap(score0,score1) :
-            temp=0
-            temp=score0
-            score0=score1
-            score1=temp
-        say=say(score0,score1)
-        # END PROBLEM 6
+        # select strategy
+        num_rolls = strategy(score, opponent_score)
+
+        # select dice
+        dice = select_dice(dice_swapped)
+
+        # play a turn
+        turn_score = take_turn(num_rolls, opponent_score, dice)
+
+        # perfect piggy
+        if is_perfect_piggy(turn_score):
+            dice_swapped = not dice_swapped
+
+        # increment score
+        score += turn_score
+        if player == 0:
+            score0 = score
+        else:
+            score1 = score
+
+        # swine swap
+        if is_swap(score, opponent_score):
+            # print('Swine Swap! {} <-> {}'.format(score, opponent_score), sys.stderr)
+            global SWINE_SWAPS
+            SWINE_SWAPS[player] += 1
+            score0, score1 = score1, score0
+
+        # break loop if gameover
+        if score >= goal:
+            break;
+
+        player = other(player)
+    # END PROBLEM 6
+    # print('Final Score: {} vs. {}'.format(score0, score1), sys.stderr)
     return score0, score1
 
 
 #######################
-# Phase 2: Commentary #
+# Phase 2: Strategies #
 #######################
-
-
-def say_scores(score0, score1):
-    """A commentary function that announces the score for each player."""
-    print("Player 0 now has", score0, "and Player 1 now has", score1)
-    return say_scores
-
-def announce_lead_changes(previous_leader=None):
-    """Return a commentary function that announces lead changes.
-
-    >>> f0 = announce_lead_changes()
-    >>> f1 = f0(5, 0)
-    Player 0 takes the lead by 5
-    >>> f2 = f1(5, 12)
-    Player 1 takes the lead by 7
-    >>> f3 = f2(8, 12)
-    >>> f4 = f3(8, 13)
-    >>> f5 = f4(15, 13)
-    Player 0 takes the lead by 2
-    """
-    def say(score0, score1):
-        if score0 > score1:
-            leader = 0
-        elif score1 > score0:
-            leader = 1
-        else:
-            leader = None
-        if leader != None and leader != previous_leader:
-            print('Player', leader, 'takes the lead by', abs(score0 - score1))
-        return announce_lead_changes(leader)
-    return say
-
-def both(f, g):
-    """Return a commentary function that says what f says, then what g says.
-
-    >>> h0 = both(say_scores, announce_lead_changes())
-    >>> h1 = h0(10, 0)
-    Player 0 now has 10 and Player 1 now has 0
-    Player 0 takes the lead by 10
-    >>> h2 = h1(10, 6)
-    Player 0 now has 10 and Player 1 now has 6
-    >>> h3 = h2(6, 17) # Player 0 gets 7 points, then Swine Swap applies
-    Player 0 now has 6 and Player 1 now has 17
-    Player 1 takes the lead by 11
-    """
-    def say(score0, score1):
-        return both(f(score0, score1), g(score0, score1))
-    return say
-
-
-def announce_highest(who, previous_high=0, previous_score=0):
-    """Return a commentary function that announces when WHO's score
-    increases by more than ever before in the game.
-
-    >>> f0 = announce_highest(1) # Only announce Player 1 score gains
-    >>> f1 = f0(12, 0)
-    >>> f2 = f1(12, 11)
-    11 point(s)! That's the biggest gain yet for Player 1
-    >>> f3 = f2(20, 11)
-    >>> f4 = f3(13, 20) # Player 1 gets 2 points, then Swine Swap applies
-    >>> f5 = f4(20, 35) # Player 0 gets 22 points, then Swine Swap applies
-    15 point(s)! That's the biggest gain yet for Player 1
-    >>> f6 = f5(20, 47) # Player 1 gets 12 points; not enough for a new high
-    >>> f7 = f6(21, 47)
-    >>> f8 = f7(21, 77)
-    30 point(s)! That's the biggest gain yet for Player 1
-    >>> f9 = f8(77, 22) # Swap!
-    >>> f10 = f9(33, 77) # Swap!
-    55 point(s)! That's the biggest gain yet for Player 1
-    """
-    assert who == 0 or who == 1, 'The who argument should indicate a player.'
-    # BEGIN PROBLEM 7
-
-    "*** YOUR CODE HERE ***"
-    def ah (score0,score1):
-        #back=gain
-        if who==0 :
-            score_own=score0
-            score_opp=score1
-        if who==1 :
-            score_own=score1
-            score_opp=score0
-
-        if score_own>previous_high+previous_score  :
-            high=1
-            gain=score_own-previous_score
-        else :
-            high= None
-            gain=previous_high
-        if high!= None :
-            print(gain, "point(s)! That's the biggest gain yet for Player", who)
-        return announce_highest(who,gain,score_own)
-
-    return ah
-
-
-    # END PROBLEM 7
-
-
-#######################
-# Phase 3: Strategies #
-#######################
-
 
 def always_roll(n):
     """Return a strategy that always rolls N dice.
@@ -282,8 +222,67 @@ def always_roll(n):
     return strategy
 
 
+def check_strategy_roll(score, opponent_score, num_rolls):
+    """Raises an error with a helpful message if NUM_ROLLS is an invalid
+    strategy output. All strategy outputs must be integers from 0 to 10.
+
+    >>> check_strategy_roll(10, 20, num_rolls=100)
+    Traceback (most recent call last):
+     ...
+    AssertionError: strategy(10, 20) returned 100 (invalid number of rolls)
+
+    >>> check_strategy_roll(20, 10, num_rolls=0.1)
+    Traceback (most recent call last):
+     ...
+    AssertionError: strategy(20, 10) returned 0.1 (not an integer)
+
+    >>> check_strategy_roll(0, 0, num_rolls=None)
+    Traceback (most recent call last):
+     ...
+    AssertionError: strategy(0, 0) returned None (not an integer)
+    """
+    msg = 'strategy({}, {}) returned {}'.format(
+        score, opponent_score, num_rolls)
+    assert type(num_rolls) == int, msg + ' (not an integer)'
+    assert 0 <= num_rolls <= 10, msg + ' (invalid number of rolls)'
+
+
+def check_strategy(strategy, goal=GOAL_SCORE):
+    """Checks the strategy with all valid inputs and verifies that the strategy
+    returns a valid input. Use `check_strategy_roll` to raise an error with a
+    helpful message if the strategy returns an invalid output.
+
+    >>> def fail_15_20(score, opponent_score):
+    ...     if score != 15 or opponent_score != 20:
+    ...         return 5
+    ...
+    >>> check_strategy(fail_15_20)
+    Traceback (most recent call last):
+     ...
+    AssertionError: strategy(15, 20) returned None (not an integer)
+    >>> def fail_102_115(score, opponent_score):
+    ...     if score == 102 and opponent_score == 115:
+    ...         return 100
+    ...     return 5
+    ...
+    >>> check_strategy(fail_102_115)
+    >>> fail_102_115 == check_strategy(fail_102_115, 120)
+    Traceback (most recent call last):
+     ...
+    AssertionError: strategy(102, 115) returned 100 (invalid number of rolls)
+    """
+    # BEGIN PROBLEM 7
+    for score in range(120):
+        for opponent_score in range(120):
+            check_strategy_roll(score, opponent_score, strategy(score, opponent_score))
+    return None
+    # END PROBLEM 7
+
+
+# Experiments
+
 def make_averaged(fn, num_samples=1000):
-    """Return a function that returns the average value of FN when called.
+    """Return a function that returns the average_value of FN when called.
 
     To implement this function, you will have to use *args syntax, a new Python
     feature introduced in this project.  See the project description.
@@ -294,16 +293,12 @@ def make_averaged(fn, num_samples=1000):
     3.0
     """
     # BEGIN PROBLEM 8
-    "*** YOUR CODE HERE ***"
-
-    def mock (*args) :
-        num=num_samples
-        total=0
-        while num>0 :
-            total+=fn (*args)
-            num=num-1
+    def avg_fn(*args):
+        total = 0
+        for i in range(num_samples):
+            total += fn(*args)
         return total/num_samples
-    return mock
+    return avg_fn
     # END PROBLEM 8
 
 
@@ -317,16 +312,13 @@ def max_scoring_num_rolls(dice=six_sided, num_samples=1000):
     1
     """
     # BEGIN PROBLEM 9
-    "*** YOUR CODE HERE ***"
-    num,best_avg=1,0
-    best_roll=0
-    while num<=10 :
-        curr_avg = make_averaged(roll_dice)(num,dice)
-        if curr_avg>best_avg :
-            best_roll=num
-            best_avg=curr_avg
-        num=num+1
-    return best_roll
+    max_score, num_rolls = 0.0, 0
+    averaged_roll_dice = make_averaged(roll_dice, num_samples)
+    for i in range(10):
+        avg_score = averaged_roll_dice(i+1, dice)
+        if avg_score > max_score:
+            max_score, num_rolls = avg_score, i+1
+    return num_rolls
     # END PROBLEM 9
 
 
@@ -343,80 +335,129 @@ def average_win_rate(strategy, baseline=always_roll(4)):
     """Return the average win rate of STRATEGY against BASELINE. Averages the
     winrate when starting the game as player 0 and as player 1.
     """
-    win_rate_as_player_0 = 1 - make_averaged(winner)(strategy, baseline)
-    win_rate_as_player_1 = make_averaged(winner)(baseline, strategy)
+    win_rate_as_player_0 = 1 - make_averaged(winner, 1000)(strategy, baseline)
+    win_rate_as_player_1 = make_averaged(winner, 1000)(baseline, strategy)
 
+    # print("Total Swine Swap = {}".format(SWINE_SWAPS))
     return (win_rate_as_player_0 + win_rate_as_player_1) / 2
 
 
 def run_experiments():
     """Run a series of strategy experiments and report results."""
-    if True:  # Change to False when done finding max_scoring_num_rolls
-        six_sided_max = max_scoring_num_rolls(six_sided)
+    if False:
+        for i in range(1, 11):
+            print('six_sided: Average score for num_roll = {}: {}'.format(i, make_averaged(roll_dice, 10000)(i, six_sided)))
+
+        for i in range(1, 11):
+            print('four_sided: Average score for num_roll = {}: {}'.format(i, make_averaged(roll_dice, 10000)(i, four_sided)))
+
+    if False:  # Change to False when done finding max_scoring_num_rolls
+        six_sided_max = max_scoring_num_rolls(six_sided, 10000)
         print('Max scoring num rolls for six-sided dice:', six_sided_max)
+        four_sided_max = max_scoring_num_rolls(four_sided, 10000)
+        print('Max scoring num rolls for four-sided dice:', four_sided_max)
 
     if False:  # Change to True to test always_roll(8)
-        print('always_roll(8) win rate:', average_win_rate(always_roll(8)))
+        for i in range(1,11):
+            print('always_roll({}) win rate: {}'.format(i, average_win_rate(always_roll(i))))
 
-    if False:  # Change to True to test bacon_strategy
-        print('bacon_strategy win rate:', average_win_rate(bacon_strategy))
+    if True:
+        win_count = 0
+        for i in range(1000):
+            print('Round {}:'.format(i))
+            if False:  # Change to True to test bacon_strategy
+                print('\tbacon_strategy win rate:', average_win_rate(bacon_strategy))
 
-    if False:  # Change to True to test swap_strategy
-        print('swap_strategy win rate:', average_win_rate(swap_strategy))
+            if False:  # Change to True to test swap_strategy
+                print('\tswap_strategy win rate:', average_win_rate(swap_strategy))
 
-    if False:  # Change to True to test final_strategy
-        print('final_strategy win rate:', average_win_rate(final_strategy))
+            if True:  # Change to True to test swap_strategy
+                rate = average_win_rate(final_strategy)
+                if rate >= 0.72:
+                    win_count += 1
+                    print('\tfinal_strategy win rate:', rate)
+                print('\tWin rate: {} / {}'.format(win_count, i+1))
 
-    "*** You may add additional experiments as you wish ***"
-
+# Strategies
 
 def bacon_strategy(score, opponent_score, margin=8, num_rolls=4):
     """This strategy rolls 0 dice if that gives at least MARGIN points, and
     rolls NUM_ROLLS otherwise.
     """
     # BEGIN PROBLEM 10
-    gain=free_bacon(opponent_score)
-    if gain >= margin :
-        return 0
-    else :
-         return num_rolls
+    free_bacon_score = free_bacon(opponent_score)
+    if free_bacon_score > 1 and prime(free_bacon_score):
+        free_bacon_score = hogtimus_prime(free_bacon_score)
 
+    return 0 if free_bacon_score >= margin else num_rolls
     # END PROBLEM 10
+check_strategy(bacon_strategy)
 
 
 def swap_strategy(score, opponent_score, margin=8, num_rolls=4):
     """This strategy rolls 0 dice when it triggers a beneficial swap. It also
-    rolls 0 dice if it gives at least MARGIN points and does not trigger a
-    non-beneficial swap. Otherwise, it rolls NUM_ROLLS.
+    rolls 0 dice if it gives at least MARGIN points. Otherwise, it rolls
+    NUM_ROLLS.
     """
     # BEGIN PROBLEM 11
-    new_score=score+free_bacon(opponent_score)
-    if new_score < opponent_score and is_swap(new_score,opponent_score) :
-        return 0
-    if bacon_strategy(score,opponent_score,margin,num_rolls)==0 and is_swap(new_score,opponent_score)==False :
-        return 0
-    else :
-        return num_rolls# Replace this statement
-    # END PROBLEM 11
+    free_bacon_score = free_bacon(opponent_score)
+    if free_bacon_score > 1 and prime(free_bacon_score):
+        free_bacon_score = hogtimus_prime(free_bacon_score)
 
+    return 0 if free_bacon_score >= margin or (score+free_bacon_score)*2 == opponent_score else num_rolls
+    # END PROBLEM 11
+check_strategy(swap_strategy)
 
 def final_strategy(score, opponent_score):
     """Write a brief description of your final strategy.
-    if down, ind the least number of rolls to make score at least even
-    *** YOUR DESCRIPTION HERE ***
     """
     # BEGIN PROBLEM 12
-    i=10
-    least_throw=10
-    if score<opponent_score :
-        while i<=10 :
-            throws=swap_strategy(score,opponent_score,abs(score-opponent_score),i)
-            if throws < least_throw :
-                least_throw=throws
-            i=i+1
-        return least_throw  # Replace this statement
+    # free bacon score
+    free_bacon_score = free_bacon(opponent_score)
+    if free_bacon_score > 1 and prime(free_bacon_score):
+        free_bacon_score = hogtimus_prime(free_bacon_score)
 
+    # always swine swap if free bacon score can trigger it
+    if (score+free_bacon_score)*2 == opponent_score:
+        return 0
+
+    # always free bacon if close to 100
+    if (score + free_bacon_score) >= 100:
+        return 0
+
+    # always roll dice to avoid swapping with lower opponent score
+    if (score+free_bacon_score) == 2*opponent_score:
+        return 5
+
+    if (score+free_bacon_score) == 2*(opponent_score+1):
+        return 5
+
+    # always roll if free_bacon_score is too low
+    # if free_bacon_score < 5:
+    #     return 4
+
+    # better than average score of roll_dice(num_rolls)
+    if free_bacon_score > 6:
+        return 0
+
+    # way ahead, play medium aggressive
+    # if (score//2-opponent_score) < 10:
+    #     return 4
+
+    # way ahead, play medium aggressive
+    # if (score//2-opponent_score) > 0:
+    #     return 4
+
+    # try to force swap
+    if (opponent_score//2-score) < 10:
+        return 4
+
+    if (opponent_score//2-score) > 0:
+        return 4
+
+    return 4
     # END PROBLEM 12
+check_strategy(final_strategy)
 
 
 ##########################
@@ -425,7 +466,6 @@ def final_strategy(score, opponent_score):
 
 # NOTE: Functions in this section do not need to be changed. They use features
 # of Python not yet covered in the course.
-
 
 @main
 def run(*args):
